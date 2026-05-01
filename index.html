@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio Murena - Win95 Desktop Worm (Independent Errors Edition)</title>
+    <title>Studio Murena - Win95 Desktop Worm (Core Eruption Edition)</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     
     <style>
@@ -71,7 +71,6 @@
             tintedCtx.fillRect(0, 0, logoImg.width, logoImg.height);
         };
 
-        // Cambiato con il Boss Angry
         const angryBossImg = new Image();
         angryBossImg.src = 'assets/ai-boss-angry.png';
 
@@ -119,17 +118,26 @@
             let offset = isPressed ? 2 : 0; ctx.fillText(text, x + w/2 + offset, y + h/2 + 6 + offset);
         }
 
-        // --- 4. ERRORI FLUTTUANTI INDIPENDENTI E ESPLOSIONI ---
+        // --- 4. ERRORI FLUTTUANTI "ERUTTATI" DAL CENTRO ---
         let floatingErrors = [];
 
         class FloatingError {
             constructor() {
                 this.w = 140; this.h = 80;
-                this.x = Math.random() * (canvas.width - this.w);
-                this.y = -100; // Nascono fuori schermo in alto
-                this.dx = (Math.random() - 0.5) * 6; // Rimbalzo orizzontale
-                this.dy = Math.random() * 3 + 2;     // Caduta
+                
+                // Nascono ESATTAMENTE al centro dello schermo (dietro la finestra madre)
+                this.x = (canvas.width / 2) - (this.w / 2);
+                this.y = (canvas.height / 2) - (this.h / 2);
+                
+                // Direzione radiale casuale a 360 gradi
+                let angle = Math.random() * Math.PI * 2;
+                let speed = Math.random() * 3 + 3; // Velocità di eruzione
+                
+                this.dx = Math.cos(angle) * speed;
+                this.dy = Math.sin(angle) * speed;
+                
                 this.exploding = 0;
+                this.age = 0; // Contatore di vita
             }
 
             update(mureneAttive) {
@@ -138,16 +146,28 @@
                     return;
                 }
 
-                // Movimento
+                this.age++;
+
+                // Movimento "rimbalzoso random": ogni tanto sterzano o cambiano velocità
+                if (Math.random() > 0.95) {
+                    this.dx += (Math.random() - 0.5) * 2;
+                    this.dy += (Math.random() - 0.5) * 2;
+                    
+                    // Limite di velocità per non farli schizzare via
+                    this.dx = Math.max(-8, Math.min(8, this.dx));
+                    this.dy = Math.max(-8, Math.min(8, this.dy));
+                }
+
                 this.x += this.dx;
                 this.y += this.dy;
 
-                // Rimbalzo sui muri laterali
-                if (this.x < 0 || this.x + this.w > canvas.width) {
-                    this.dx *= -1;
-                }
+                // Rimbalzo su TUTTI I BORDI dello schermo
+                if (this.x < 0) { this.x = 0; this.dx *= -1; }
+                if (this.x + this.w > canvas.width) { this.x = canvas.width - this.w; this.dx *= -1; }
+                if (this.y < 0) { this.y = 0; this.dy *= -1; }
+                if (this.y + this.h > canvas.height) { this.y = canvas.height - this.h; this.dy *= -1; }
 
-                // COLLISIONE CON LE MURENE
+                // COLLISIONE CON LE MURENE (Esplosione)
                 let cx = this.x + this.w / 2;
                 let cy = this.y + this.h / 2;
 
@@ -155,8 +175,8 @@
                     let head = m.corpo[0];
                     if (head) {
                         let dist = Math.hypot(head.x - cx, head.y - cy);
-                        if (dist < 80) { // Se la Murena gli passa sopra...
-                            this.exploding = 1; // INNESCA L'ESPLOSIONE
+                        if (dist < 80) { 
+                            this.exploding = 1; 
                         }
                     }
                 });
@@ -164,11 +184,10 @@
 
             draw() {
                 if (this.exploding > 0) {
-                    // --- ANIMAZIONE ESPLOSIONE ---
-                    let p = this.exploding / 20; // 20 frames di esplosione
-                    ctx.globalAlpha = 1 - p; // Svanisce man mano
+                    // Animazione Esplosione Glitch
+                    let p = this.exploding / 20; 
+                    ctx.globalAlpha = 1 - p; 
                     
-                    // Disegna la finestra frammentata
                     let sX = (Math.random() - 0.5) * 60;
                     let sY = (Math.random() - 0.5) * 60;
                     
@@ -182,7 +201,7 @@
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
                 } else {
-                    // --- FINESTRA NORMALE IN CADUTA ---
+                    // Finestra Normale
                     drawWin95Window(this.x, this.y, this.w, this.h, "Error 0x00", false);
                     ctx.fillStyle = "red"; ctx.font = "bold 20px Arial"; ctx.textAlign = 'left'; ctx.fillText("X", this.x + 30, this.y + 50);
                     ctx.fillStyle = "black"; ctx.font = "18px VT323"; ctx.fillText("FATAL", this.x + 60, this.y + 48);
@@ -263,7 +282,6 @@
                 let spriteFrame = Math.floor(progress * 24); 
                 let col = spriteFrame % 5; let row = Math.floor(spriteFrame / 5);
 
-                // RIPORTATO A 3.3 (Era salito a 6.5 prima)
                 let currentScale = 0.2 + (progress * 3.3); 
                 let size = 256;
 
@@ -316,23 +334,24 @@
                 }
             }
 
-            // GESTIONE ERRORI FLUTTUANTI (Generazione casuale)
-            if (Math.random() > 0.96 && floatingErrors.length < 12) {
+            // GESTIONE ERRORI FLUTTUANTI (Generazione al centro dello schermo)
+            if (Math.random() > 0.94 && floatingErrors.length < 15) { // Un pelo più frequenti
                 floatingErrors.push(new FloatingError());
             }
 
             // Aggiorna Errori
             floatingErrors.forEach(err => err.update(arrayMurene));
-            // Rimuove quelli usciti dallo schermo in basso o esplosi
-            floatingErrors = floatingErrors.filter(err => err.y < canvas.height + 100 && err.exploding <= 20);
+            
+            // Rimuove gli errori che sono esplosi da troppo o che sono diventati "troppo vecchi" (vivono max 15 secondi)
+            floatingErrors = floatingErrors.filter(err => err.age < 900 && err.exploding <= 20);
 
-            // LAYER 1: IL BOSS ANGRY (Dietro tutto)
+            // LAYER 1: IL BOSS ANGRY JUMPSCARE
             triggerBossTunnel();
 
-            // LAYER 2: LE FINESTRE D'ERRORE IN CADUTA
+            // LAYER 2: LE FINESTRE D'ERRORE ERUTTATE
             floatingErrors.forEach(err => err.draw());
 
-            // LAYER 3: IL WORM ASCII (Davanti agli errori)
+            // LAYER 3: IL WORM ASCII 
             arrayMurene = arrayMurene.filter(m => !m.isDead());
             if (arrayMurene.length === 0) arrayMurene.push(new MurenaWorm()); 
             arrayMurene.forEach(m => m.update());
