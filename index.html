@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Murena - Win95 Desktop Worm</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #008080; /* Teal classico Win95 */
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; 
+            font-family: 'VT323', monospace;
+        }
+
+        #crt-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 900; pointer-events: none;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+            background-size: 100% 4px, 4px 100%;
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.95; }
+            50% { opacity: 1; }
+            100% { opacity: 0.98; }
+        }
+
+        canvas {
+            display: block; width: 100%; height: 100%; z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="crt-overlay"></div>
+    <canvas id="visualizer"></canvas>
+
+    <script>
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- 1. CARICAMENTO LOGO ---
+        const logoImg = new Image();
+        logoImg.src = 'assets/logo-studiomurena.png'; 
+        
+        const tintedLogo = document.createElement('canvas');
+        const tintedCtx = tintedLogo.getContext('2d');
+
+        logoImg.onload = () => {
+            tintedLogo.width = logoImg.width; tintedLogo.height = logoImg.height;
+            tintedCtx.drawImage(logoImg, 0, 0);
+            tintedCtx.globalCompositeOperation = 'source-in';
+            
+            // Per il desktop usiamo un rosso "Errore" / Giallo "Allerta"
+            let grad = tintedCtx.createLinearGradient(0, 0, 0, logoImg.height);
+            grad.addColorStop(0, '#ff5555'); 
+            grad.addColorStop(0.5, '#ff0000'); 
+            grad.addColorStop(1, '#880000'); 
+            
+            tintedCtx.fillStyle = grad;
+            tintedCtx.fillRect(0, 0, logoImg.width, logoImg.height);
+        };
+
+        // --- 2. GENERAZIONE CARTELLE DESKTOP ---
+        const folderNames = [
+            "Bassi.wav", "Batteria_Mauri", "Sax_Take2_OK", "Synth_Arp", 
+            "PROGETTO_FINALE", "Vero_Finale_v3", "Non_Toccare.exe", "JAZZ_HIGHLANDER"
+        ];
+        let folders = [];
+        for(let i=0; i<12; i++) {
+            folders.push({
+                x: Math.random() * (canvas.width - 150) + 50,
+                y: Math.random() * (canvas.height - 150) + 50,
+                name: folderNames[i % folderNames.length]
+            });
+        }
+
+        // --- 3. MOTORE DI RENDERING INTERFACCIA WIN95 ---
+        function drawWin95Window(x, y, w, h, title, isActive = false) {
+            // Sfondo Finestra
+            ctx.fillStyle = '#c0c0c0';
+            ctx.fillRect(x, y, w, h);
+            
+            // Bordi 3D esterni
+            ctx.fillStyle = '#ffffff'; // Luce alto/sx
+            ctx.fillRect(x, y, w, 2);
+            ctx.fillRect(x, y, 2, h);
+            
+            ctx.fillStyle = '#000000'; // Ombra scura basso/dx
+            ctx.fillRect(x+w-2, y, 2, h);
+            ctx.fillRect(x, y+h-2, w, 2);
+            
+            ctx.fillStyle = '#808080'; // Ombra media basso/dx
+            ctx.fillRect(x+w-4, y+2, 2, h-4);
+            ctx.fillRect(x+2, y+h-4, w-4, 2);
+
+            // Barra del Titolo
+            ctx.fillStyle = isActive ? '#0000a8' : '#808080'; // Blu se attiva, grigia se disattiva
+            ctx.fillRect(x+4, y+4, w-8, 22);
+
+            // Testo del Titolo
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 18px VT323';
+            ctx.textAlign = 'left';
+            ctx.fillText(title, x + 8, y + 20);
+
+            // Tasto Chiudi (X)
+            ctx.fillStyle = '#c0c0c0';
+            let btnX = x + w - 24; let btnY = y + 6;
+            ctx.fillRect(btnX, btnY, 16, 16);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(btnX, btnY, 16, 1); ctx.fillRect(btnX, btnY, 1, 16);
+            ctx.fillStyle = '#000000'; ctx.fillRect(btnX+15, btnY, 1, 16); ctx.fillRect(btnX, btnY+15, 16, 1);
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('x', btnX + 4, btnY + 12);
+        }
+
+        function drawWin95Button(x, y, w, h, text, isPressed) {
+            ctx.fillStyle = '#c0c0c0';
+            ctx.fillRect(x, y, w, h);
+            
+            if(isPressed) {
+                // Tasto premuto
+                ctx.fillStyle = '#000000'; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y, 1, h);
+                ctx.fillStyle = '#808080'; ctx.fillRect(x+1, y+1, w-2, 1); ctx.fillRect(x+1, y+1, 1, h-2);
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(x+w-1, y, 1, h); ctx.fillRect(x, y+h-1, w, 1);
+            } else {
+                // Tasto normale
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y, 1, h);
+                ctx.fillStyle = '#000000'; ctx.fillRect(x+w-1, y, 1, h); ctx.fillRect(x, y+h-1, w, 1);
+                ctx.fillStyle = '#808080'; ctx.fillRect(x+w-2, y+1, 1, h-2); ctx.fillRect(x+1, y+h-2, w-2, 1);
+            }
+
+            ctx.fillStyle = '#000000';
+            ctx.font = '22px VT323';
+            ctx.textAlign = 'center';
+            // Sposta il testo giù se premuto
+            let offset = isPressed ? 2 : 0;
+            ctx.fillText(text, x + w/2 + offset, y + h/2 + 6 + offset);
+        }
+
+        // --- 4. IL WORM ASCII & ERRORI ---
+        let timer = 0;
+        let droppedErrors = []; // La cascata di finestre lasciate dal verme
+        const wormLength = 80;
+        let wormBody = [];
+
+        function updateWorm() {
+            timer++;
+            
+            // X avanza all'infinito e warpa
+            let headX = (timer * 7) % (canvas.width + 800) - 400;
+            
+            // Y ondeggia violentemente
+            let headY = canvas.height/2 + Math.sin(timer * 0.05) * 300 + Math.cos(timer * 0.08) * 100;
+
+            // Z-Index: Il verme usa il coseno per "tuffarsi" dietro la finestra madre
+            let headZ = Math.cos(timer * 0.03); 
+
+            wormBody.unshift({ x: headX, y: headY, z: headZ, char: (Math.random()>0.5)?'#':'@' });
+            if(wormBody.length > wormLength) wormBody.pop();
+
+            // RILASCIO FINESTRE DI ERRORE
+            if (Math.random() > 0.85) {
+                droppedErrors.push({ x: headX, y: headY });
+                if(droppedErrors.length > 60) droppedErrors.shift(); // Limite per non fondere il PC
+            }
+        }
+
+        function drawWorm(drawBehind) {
+            for(let i=0; i<wormBody.length; i++) {
+                let p = wormBody[i];
+                
+                // Disegniamo solo la parte del verme richiesta dal Layer (Dietro o Davanti)
+                let isCurrentBehind = p.z < 0; 
+                if (isCurrentBehind !== drawBehind) continue;
+
+                let size = 60 - (i * 0.5);
+                let opacity = 1 - (i / wormLength);
+                
+                ctx.fillStyle = `rgba(0, 255, 65, ${opacity})`;
+                ctx.font = `bold ${size}px monospace`;
+                ctx.textAlign = 'center';
+
+                // Glitch visivo sul verme
+                let shiftX = (Math.random() > 0.9) ? (Math.random()-0.5)*20 : 0;
+                ctx.fillText((Math.random()>0.8)?'X':p.char, p.x + shiftX, p.y);
+            }
+        }
+
+        function drawDroppedErrors() {
+            droppedErrors.forEach(err => {
+                drawWin95Window(err.x - 60, err.y - 40, 140, 80, "Error 0x00", false);
+                ctx.fillStyle = "red";
+                ctx.font = "bold 20px Arial";
+                ctx.fillText("X", err.x - 30, err.y + 10);
+                ctx.fillStyle = "black";
+                ctx.font = "18px VT323";
+                ctx.fillText("FATAL", err.x + 10, err.y + 10);
+            });
+        }
+
+        // --- 5. RENDER FINALE ---
+        function animazione() {
+            // Sfondo Desktop Win95
+            ctx.fillStyle = '#008080';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Disegna Icone
+            folders.forEach(f => {
+                ctx.fillStyle = '#ffcc00'; ctx.fillRect(f.x, f.y+5, 40, 30); // Corpo
+                ctx.fillRect(f.x, f.y, 15, 5); // Linguetta
+                ctx.fillStyle = '#ffffff'; ctx.font = '20px VT323'; ctx.textAlign = 'center';
+                ctx.fillText(f.name, f.x + 20, f.y + 55); // Etichetta
+            });
+
+            updateWorm();
+
+            // LAYER 1: Errori droppati dal verme
+            drawDroppedErrors();
+
+            // LAYER 2: Verme (Porzione DIETRO la finestra madre)
+            drawWorm(true);
+
+            // LAYER 3: LA FINESTRA MADRE (Il Logo)
+            let wW = canvas.width * 0.6;
+            let wH = canvas.height * 0.6;
+            let wX = (canvas.width - wW) / 2;
+            let wY = (canvas.height - wH) / 2;
+
+            // La finestra madre sfarfalla la barra del titolo
+            let isMainActive = (Math.floor(timer / 10) % 2 === 0);
+            drawWin95Window(wX, wY, wW, wH, "STUDIO_MURENA_FATAL_EXCEPTION.EXE", isMainActive);
+
+            // Inserisce il Logo all'interno
+            if (tintedLogo.width > 0) {
+                let logoScale = Math.min((wW - 100) / tintedLogo.width, (wH - 150) / tintedLogo.height);
+                let lW = tintedLogo.width * logoScale;
+                let lH = tintedLogo.height * logoScale;
+                ctx.drawImage(tintedLogo, wX + (wW - lW)/2, wY + 50, lW, lH);
+            }
+
+            // Pulsanti in basso (si premono a ritmo)
+            let btnW = 120; let btnH = 40;
+            let btnY = wY + wH - 60;
+            let totalBtnWidth = (btnW * 3) + 40; // 3 bottoni + 2 spazi da 20
+            let startX = wX + (wW - totalBtnWidth) / 2;
+
+            drawWin95Button(startX, btnY, btnW, btnH, "IGNORA", (Math.floor(timer / 15) % 3 === 0));
+            drawWin95Button(startX + btnW + 20, btnY, btnW, btnH, "RIPROVA", (Math.floor(timer / 15) % 3 === 1));
+            drawWin95Button(startX + (btnW + 20)*2, btnY, btnW, btnH, "MUORI", (Math.floor(timer / 15) % 3 === 2));
+
+            // LAYER 4: Verme (Porzione DAVANTI alla finestra madre)
+            drawWorm(false);
+
+            requestAnimationFrame(animazione);
+        }
+
+        animazione();
+
+    </script>
+</body>
+</html>
