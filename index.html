@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio Murena - Win95 Desktop Worm (Core Eruption Edition)</title>
+    <title>Studio Murena - Win95 Desktop Worm (Boss Explosion Edition)</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     
     <style>
@@ -124,20 +124,17 @@
         class FloatingError {
             constructor() {
                 this.w = 140; this.h = 80;
-                
-                // Nascono ESATTAMENTE al centro dello schermo (dietro la finestra madre)
                 this.x = (canvas.width / 2) - (this.w / 2);
                 this.y = (canvas.height / 2) - (this.h / 2);
                 
-                // Direzione radiale casuale a 360 gradi
                 let angle = Math.random() * Math.PI * 2;
-                let speed = Math.random() * 3 + 3; // Velocità di eruzione
+                let speed = Math.random() * 3 + 3; 
                 
                 this.dx = Math.cos(angle) * speed;
                 this.dy = Math.sin(angle) * speed;
                 
                 this.exploding = 0;
-                this.age = 0; // Contatore di vita
+                this.age = 0; 
             }
 
             update(mureneAttive) {
@@ -148,12 +145,9 @@
 
                 this.age++;
 
-                // Movimento "rimbalzoso random": ogni tanto sterzano o cambiano velocità
                 if (Math.random() > 0.95) {
                     this.dx += (Math.random() - 0.5) * 2;
                     this.dy += (Math.random() - 0.5) * 2;
-                    
-                    // Limite di velocità per non farli schizzare via
                     this.dx = Math.max(-8, Math.min(8, this.dx));
                     this.dy = Math.max(-8, Math.min(8, this.dy));
                 }
@@ -161,13 +155,11 @@
                 this.x += this.dx;
                 this.y += this.dy;
 
-                // Rimbalzo su TUTTI I BORDI dello schermo
                 if (this.x < 0) { this.x = 0; this.dx *= -1; }
                 if (this.x + this.w > canvas.width) { this.x = canvas.width - this.w; this.dx *= -1; }
                 if (this.y < 0) { this.y = 0; this.dy *= -1; }
                 if (this.y + this.h > canvas.height) { this.y = canvas.height - this.h; this.dy *= -1; }
 
-                // COLLISIONE CON LE MURENE (Esplosione)
                 let cx = this.x + this.w / 2;
                 let cy = this.y + this.h / 2;
 
@@ -184,7 +176,6 @@
 
             draw() {
                 if (this.exploding > 0) {
-                    // Animazione Esplosione Glitch
                     let p = this.exploding / 20; 
                     ctx.globalAlpha = 1 - p; 
                     
@@ -201,7 +192,6 @@
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
                 } else {
-                    // Finestra Normale
                     drawWin95Window(this.x, this.y, this.w, this.h, "Error 0x00", false);
                     ctx.fillStyle = "red"; ctx.font = "bold 20px Arial"; ctx.textAlign = 'left'; ctx.fillText("X", this.x + 30, this.y + 50);
                     ctx.fillStyle = "black"; ctx.font = "18px VT323"; ctx.fillText("FATAL", this.x + 60, this.y + 48);
@@ -265,13 +255,15 @@
             }
         }
 
-        // --- 6. EVENTO BOSS JUMPSCARE ---
+        // --- 6. EVENTO BOSS JUMPSCARE E ESPLOSIONE CODICE ---
         let tunnelTimer = 0;
         let tunnelMaxTime = 60; 
         let tunnelX = 0; let tunnelY = 0;
+        let bossExplosionParticles = []; // Array per i pezzi di codice
 
         function triggerBossTunnel() {
-            if (tunnelTimer === 0 && angryBossImg.complete && Math.random() > 0.998) {
+            // Frequenza rara
+            if (tunnelTimer === 0 && angryBossImg.complete && Math.random() > 0.9993) {
                 tunnelTimer = 1;
                 tunnelX = Math.random() * (canvas.width * 0.6) + canvas.width * 0.2;
                 tunnelY = Math.random() * (canvas.height * 0.6) + canvas.height * 0.2;
@@ -282,17 +274,17 @@
                 let spriteFrame = Math.floor(progress * 24); 
                 let col = spriteFrame % 5; let row = Math.floor(spriteFrame / 5);
 
-                let currentScale = 0.2 + (progress * 3.3); 
+                let currentScale = 0.2 + (progress * 1.4); 
                 let size = 256;
 
                 ctx.save();
                 ctx.translate(tunnelX, tunnelY);
                 
-                let glitchX = (Math.random() - 0.5) * 40 * progress;
-                let glitchY = (Math.random() - 0.5) * 40 * progress;
+                let glitchX = (Math.random() - 0.5) * 20 * progress;
+                let glitchY = (Math.random() - 0.5) * 20 * progress;
 
                 ctx.scale(currentScale, currentScale);
-                ctx.globalAlpha = 0.9;
+                ctx.globalAlpha = 0.45; 
 
                 if (Math.random() > 0.6) {
                     ctx.globalCompositeOperation = 'screen';
@@ -307,8 +299,48 @@
                 ctx.restore();
 
                 tunnelTimer++;
-                if (tunnelTimer > tunnelMaxTime) tunnelTimer = 0; 
+
+                // IL BOSS HA FINITO IL SUO TEMPO: ESPLOSIONE IN CODICE
+                if (tunnelTimer > tunnelMaxTime) {
+                    tunnelTimer = 0; 
+                    
+                    // Genera i frammenti
+                    for (let i = 0; i < 150; i++) {
+                        let angle = Math.random() * Math.PI * 2;
+                        let speed = Math.random() * 18 + 5;
+                        bossExplosionParticles.push({
+                            x: tunnelX + (Math.random() - 0.5) * 200, // Area di spawn larga
+                            y: tunnelY + (Math.random() - 0.5) * 200,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            life: 1.0, 
+                            char: (Math.random() > 0.5) ? '0' : (Math.random() > 0.5 ? '1' : 'X'),
+                            color: (Math.random() > 0.7) ? '#ff0000' : '#00ff41', // Rosso o Verde Matrix
+                            size: Math.random() * 25 + 15
+                        });
+                    }
+                }
             }
+        }
+
+        function drawBossExplosion() {
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            for (let i = bossExplosionParticles.length - 1; i >= 0; i--) {
+                let p = bossExplosionParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.025; // Fade out veloce
+
+                if (p.life <= 0) {
+                    bossExplosionParticles.splice(i, 1);
+                } else {
+                    ctx.globalAlpha = p.life * 0.7; // Leggermente fantasma
+                    ctx.fillStyle = p.color;
+                    ctx.font = `bold ${p.size}px monospace`;
+                    ctx.fillText(p.char, p.x, p.y);
+                }
+            }
+            ctx.globalAlpha = 1.0;
         }
 
         // --- 7. RENDER FINALE ---
@@ -334,19 +366,17 @@
                 }
             }
 
-            // GESTIONE ERRORI FLUTTUANTI (Generazione al centro dello schermo)
-            if (Math.random() > 0.94 && floatingErrors.length < 15) { // Un pelo più frequenti
+            // GESTIONE ERRORI FLUTTUANTI
+            if (Math.random() > 0.94 && floatingErrors.length < 15) { 
                 floatingErrors.push(new FloatingError());
             }
 
-            // Aggiorna Errori
             floatingErrors.forEach(err => err.update(arrayMurene));
-            
-            // Rimuove gli errori che sono esplosi da troppo o che sono diventati "troppo vecchi" (vivono max 15 secondi)
             floatingErrors = floatingErrors.filter(err => err.age < 900 && err.exploding <= 20);
 
-            // LAYER 1: IL BOSS ANGRY JUMPSCARE
+            // LAYER 1: IL BOSS ANGRY JUMPSCARE FANTASMA E LA SUA ESPLOSIONE
             triggerBossTunnel();
+            drawBossExplosion();
 
             // LAYER 2: LE FINESTRE D'ERRORE ERUTTATE
             floatingErrors.forEach(err => err.draw());
@@ -357,7 +387,7 @@
             arrayMurene.forEach(m => m.update());
             arrayMurene.forEach(m => m.draw());
 
-            // LAYER 4: LA FINESTRA MADRE (PRIMISSIMO PIANO)
+            // LAYER 4: LA FINESTRA MADRE
             if (tintedLogo.width > 0) {
                 let maxLogoW = canvas.width * 0.55; 
                 let maxLogoH = canvas.height * 0.45;
