@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio Murena - Win95 Desktop Worm (Black Edition + Tunnel Glitch)</title>
+    <title>Studio Murena - Win95 Desktop Worm (Explosive Edition)</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     
     <style>
@@ -71,7 +71,6 @@
             tintedCtx.fillRect(0, 0, logoImg.width, logoImg.height);
         };
 
-        // Caricamento del Boss Tunnel per l'evento Jumpscare
         const tunnelImg = new Image();
         tunnelImg.src = 'assets/ai-boss-tunnel.png';
 
@@ -92,8 +91,7 @@
 
         // --- 3. MOTORE RENDERING WIN95 ---
         function drawWin95Window(x, y, w, h, title, isActive = false) {
-            ctx.fillStyle = '#c0c0c0';
-            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = '#c0c0c0'; ctx.fillRect(x, y, w, h);
             ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y, 2, h); 
             ctx.fillStyle = '#000000'; ctx.fillRect(x+w-2, y, 2, h); ctx.fillRect(x, y+h-2, w, 2); 
             ctx.fillStyle = '#808080'; ctx.fillRect(x+w-4, y+2, 2, h-4); ctx.fillRect(x+2, y+h-4, w-4, 2);
@@ -120,7 +118,7 @@
             let offset = isPressed ? 2 : 0; ctx.fillText(text, x + w/2 + offset, y + h/2 + 6 + offset);
         }
 
-        // --- 4. IL WORM ASCII OOP ---
+        // --- 4. IL WORM ASCII OOP E GESTIONE ESPLOSIONI ---
         let droppedErrors = []; 
         let arrayMurene = [];
 
@@ -133,7 +131,7 @@
                 this.dirX = Math.random() > 0.5 ? 1 : -1;
                 this.startX = this.dirX === 1 ? -400 : canvas.width + 400;
                 this.speedX = Math.random() * 5 + 4;
-                this.baseY = (canvas.height / 2) + (Math.random() * 400 - 200);
+                this.baseY = (canvas.height / 2) + (Math.random() * 500 - 250);
                 
                 this.w1 = Math.random() * 0.015 + 0.005; this.a1 = Math.random() * 200 + 50;
                 this.w2 = Math.random() * 0.025 + 0.015; this.a2 = Math.random() * 100 + 50;
@@ -156,9 +154,23 @@
                 this.corpo.unshift({ x: headX, y: headY, char: (Math.random()>0.5)?'#':'@' });
                 if(this.corpo.length > this.lunghezza) this.corpo.pop();
 
-                if (Math.random() > 0.85) {
-                    droppedErrors.push({ x: headX, y: headY });
+                // Drop Errore
+                if (Math.random() > 0.88) {
+                    droppedErrors.push({ x: headX, y: headY, age: 0, exploding: 0 });
                     if(droppedErrors.length > 50) droppedErrors.shift(); 
+                }
+
+                // COLLISIONE: Il verme sbatte contro i SUOI STESSI ERRORI
+                for (let i = droppedErrors.length - 1; i >= 0; i--) {
+                    let err = droppedErrors[i];
+                    err.age++;
+                    
+                    if (err.exploding === 0 && err.age > 40) { // Deve invecchiare un po' per non esplodere appena nato
+                        let dist = Math.hypot(headX - err.x, headY - err.y);
+                        if (dist < 60) {
+                            err.exploding = 1; // INNESCA L'ESPLOSIONE
+                        }
+                    }
                 }
             }
 
@@ -183,57 +195,70 @@
         }
 
         function drawDroppedErrors() {
-            for(let err of droppedErrors) {
-                drawWin95Window(err.x - 60, err.y - 40, 140, 80, "Error 0x00", false);
-                ctx.fillStyle = "red"; ctx.font = "bold 20px Arial"; ctx.fillText("X", err.x - 30, err.y + 10);
-                ctx.fillStyle = "black"; ctx.font = "18px VT323"; ctx.fillText("FATAL", err.x + 10, err.y + 10);
+            for (let i = droppedErrors.length - 1; i >= 0; i--) {
+                let err = droppedErrors[i];
+
+                if (err.exploding > 0) {
+                    err.exploding++;
+                    // ANIMAZIONE ESPLOSIONE GLITCHATA
+                    let progress = err.exploding / 15; // Dura 15 frame
+                    let size = 140 + (progress * 50); // Si allarga
+                    
+                    ctx.fillStyle = (Math.random() > 0.5) ? '#ff0000' : '#ffffff';
+                    let gX = err.x - (size/2) + (Math.random()-0.5)*30;
+                    let gY = err.y - 40 + (Math.random()-0.5)*30;
+                    
+                    ctx.globalAlpha = 1 - progress; // Svanisce
+                    ctx.fillRect(gX, gY, size, 80);
+                    ctx.fillStyle = '#000000';
+                    ctx.font = 'bold 30px monospace';
+                    ctx.fillText("FATAL", gX + size/2, gY + 40);
+                    ctx.globalAlpha = 1.0;
+
+                    if (err.exploding > 15) droppedErrors.splice(i, 1); // Rimuovi finito
+                } else {
+                    // FINESTRA NORMALE
+                    drawWin95Window(err.x - 60, err.y - 40, 140, 80, "Error", false);
+                    ctx.fillStyle = "red"; ctx.font = "bold 20px Arial"; ctx.fillText("X", err.x - 30, err.y + 10);
+                    ctx.fillStyle = "black"; ctx.font = "18px VT323"; ctx.fillText("FATAL", err.x + 10, err.y + 10);
+                }
             }
         }
 
-        // --- 5. EVENTO BOSS TUNNEL (Jumpscare 1 Secondo) ---
+        // --- 5. EVENTO BOSS TUNNEL (Jumpscare PIÙ GIGANTE) ---
         let tunnelTimer = 0;
-        let tunnelMaxTime = 60; // 60 frame = 1 secondo esatto
-        let tunnelX = 0;
-        let tunnelY = 0;
+        let tunnelMaxTime = 60; 
+        let tunnelX = 0; let tunnelY = 0;
 
         function triggerBossTunnel() {
-            // Molto raro: circa 0.2% a frame
             if (tunnelTimer === 0 && tunnelImg.complete && Math.random() > 0.998) {
                 tunnelTimer = 1;
-                // Spawna in una posizione casuale ma non troppo vicina ai bordi estremi
                 tunnelX = Math.random() * (canvas.width * 0.6) + canvas.width * 0.2;
                 tunnelY = Math.random() * (canvas.height * 0.6) + canvas.height * 0.2;
             }
 
             if (tunnelTimer > 0) {
-                let progress = tunnelTimer / tunnelMaxTime; // Da 0.0 a 1.0
-                
-                // Mappa il progresso da 0->1 ai 25 frame della spritesheet
+                let progress = tunnelTimer / tunnelMaxTime; 
                 let spriteFrame = Math.floor(progress * 24); 
-                let col = spriteFrame % 5;
-                let row = Math.floor(spriteFrame / 5);
+                let col = spriteFrame % 5; let row = Math.floor(spriteFrame / 5);
 
-                // Scala dinamica: da piccolissimo (0.2x) a enorme (3.5x)
-                let currentScale = 0.2 + (progress * 3.3); 
+                // --- MOLTIPLICATORE DI SCALA AUMENTATO (Da 3.3 a 6.5) ---
+                let currentScale = 0.2 + (progress * 6.5); 
                 let size = 256;
 
                 ctx.save();
                 ctx.translate(tunnelX, tunnelY);
                 
-                // Vibrazione caotica che aumenta man mano che diventa grande
-                let glitchX = (Math.random() - 0.5) * 30 * progress;
-                let glitchY = (Math.random() - 0.5) * 30 * progress;
+                let glitchX = (Math.random() - 0.5) * 40 * progress;
+                let glitchY = (Math.random() - 0.5) * 40 * progress;
 
                 ctx.scale(currentScale, currentScale);
-                ctx.globalAlpha = 0.85;
+                ctx.globalAlpha = 0.9;
 
-                // Spacca i canali RGB per simulare un collasso visivo
                 if (Math.random() > 0.6) {
                     ctx.globalCompositeOperation = 'screen';
-                    
                     ctx.shadowColor = "red"; ctx.shadowBlur = 10;
                     ctx.drawImage(tunnelImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX - 10, (-size/2) + glitchY, size, size);
-                    
                     ctx.shadowColor = "cyan"; ctx.shadowBlur = 10;
                     ctx.drawImage(tunnelImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX + 10, (-size/2) + glitchY, size, size);
                 } else {
@@ -243,9 +268,7 @@
                 ctx.restore();
 
                 tunnelTimer++;
-                if (tunnelTimer > tunnelMaxTime) {
-                    tunnelTimer = 0; // Azzera e sparisce di botto
-                }
+                if (tunnelTimer > tunnelMaxTime) tunnelTimer = 0; 
             }
         }
 
@@ -272,43 +295,54 @@
                 }
             }
 
-            // LAYER 1: IL WORM ASCII (Sempre dietro)
+            // LAYER 1: IL TUNNEL BOSS JUMPSCARE (Dietro tutto il caos animato)
+            triggerBossTunnel();
+
+            // LAYER 2: GLI ERRORI DROPPATI DAL WORM (Sul Desktop)
+            drawDroppedErrors();
+
+            // LAYER 3: IL WORM ASCII (Davanti agli Errori e al Tunnel, ma Dietro al Logo)
             arrayMurene = arrayMurene.filter(m => !m.isDead());
             if (arrayMurene.length === 0) arrayMurene.push(new MurenaWorm()); 
-            
             arrayMurene.forEach(m => m.update());
             arrayMurene.forEach(m => m.draw());
 
-            // LAYER 2: GLI ERRORI DROPPATI DAL WORM
-            drawDroppedErrors();
-
-            // LAYER 3: IL TUNNEL BOSS JUMPSCARE (Sta dietro alla finestra madre!)
-            triggerBossTunnel();
-
-            // LAYER 4: LA FINESTRA MADRE (PRIMISSIMO PIANO)
-            let wW = canvas.width * 0.6;
-            let wH = canvas.height * 0.6;
-            let wX = (canvas.width - wW) / 2;
-            let wY = (canvas.height - wH) / 2;
-
-            let isMainActive = (Math.floor(mainTimer / 10) % 2 === 0);
-            drawWin95Window(wX, wY, wW, wH, "STUDIO_MURENA_FATAL_EXCEPTION.EXE", isMainActive);
-
+            // LAYER 4: LA FINESTRA MADRE (PRIMISSIMO PIANO) - DINAMICA E MISURATA
             if (tintedLogo.width > 0) {
-                let logoScale = Math.min((wW - 100) / tintedLogo.width, (wH - 150) / tintedLogo.height);
+                let maxLogoW = canvas.width * 0.55; 
+                let maxLogoH = canvas.height * 0.45;
+                let logoScale = Math.min(maxLogoW / tintedLogo.width, maxLogoH / tintedLogo.height);
                 let lW = tintedLogo.width * logoScale;
                 let lH = tintedLogo.height * logoScale;
-                ctx.drawImage(tintedLogo, wX + (wW - lW)/2, wY + 50, lW, lH);
+                
+                // Margini e dimensioni Finestra dinamici sul logo
+                let padX = 40; 
+                let padTop = 60; // Spazio per la barra titolo Win95
+                let padBot = 90; // Spazio per i bottoni
+                
+                let wW = lW + padX * 2;
+                let wH = lH + padTop + padBot;
+                let wX = (canvas.width - wW) / 2;
+                let wY = (canvas.height - wH) / 2;
+
+                let isMainActive = (Math.floor(mainTimer / 10) % 2 === 0);
+                drawWin95Window(wX, wY, wW, wH, "STUDIO_MURENA_FATAL_EXCEPTION.EXE", isMainActive);
+                
+                // Disegna Logo
+                ctx.drawImage(tintedLogo, wX + padX, wY + padTop, lW, lH);
+
+                // Tasti in basso
+                let btnW = Math.min(120, (wW - 80) / 3); 
+                let btnH = 40;
+                let btnY = wY + wH - 60;
+                let gap = 20;
+                let totalBtnWidth = (btnW * 3) + (gap * 2);
+                let startX = wX + (wW - totalBtnWidth) / 2;
+
+                drawWin95Button(startX, btnY, btnW, btnH, "ANNULLA", (Math.floor(mainTimer / 15) % 3 === 0));
+                drawWin95Button(startX + btnW + gap, btnY, btnW, btnH, "RIPROVA", (Math.floor(mainTimer / 15) % 3 === 1));
+                drawWin95Button(startX + (btnW + gap)*2, btnY, btnW, btnH, "IGNORA", (Math.floor(mainTimer / 15) % 3 === 2));
             }
-
-            let btnW = 120; let btnH = 40;
-            let btnY = wY + wH - 60;
-            let totalBtnWidth = (btnW * 3) + 40;
-            let startX = wX + (wW - totalBtnWidth) / 2;
-
-            drawWin95Button(startX, btnY, btnW, btnH, "ANNULLA", (Math.floor(mainTimer / 15) % 3 === 0));
-            drawWin95Button(startX + btnW + 20, btnY, btnW, btnH, "RIPROVA", (Math.floor(mainTimer / 15) % 3 === 1));
-            drawWin95Button(startX + (btnW + 20)*2, btnY, btnW, btnH, "IGNORA", (Math.floor(mainTimer / 15) % 3 === 2));
 
             requestAnimationFrame(animazione);
         }
