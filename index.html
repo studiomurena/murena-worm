@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio Murena - Win95 Desktop Worm (Explosive Edition)</title>
+    <title>Studio Murena - Win95 Desktop Worm (Independent Errors Edition)</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     
     <style>
@@ -71,8 +71,9 @@
             tintedCtx.fillRect(0, 0, logoImg.width, logoImg.height);
         };
 
-        const tunnelImg = new Image();
-        tunnelImg.src = 'assets/ai-boss-tunnel.png';
+        // Cambiato con il Boss Angry
+        const angryBossImg = new Image();
+        angryBossImg.src = 'assets/ai-boss-angry.png';
 
         // --- 2. GENERAZIONE CARTELLE DESKTOP ---
         const folderNames = [
@@ -96,7 +97,7 @@
             ctx.fillStyle = '#000000'; ctx.fillRect(x+w-2, y, 2, h); ctx.fillRect(x, y+h-2, w, 2); 
             ctx.fillStyle = '#808080'; ctx.fillRect(x+w-4, y+2, 2, h-4); ctx.fillRect(x+2, y+h-4, w-4, 2);
             ctx.fillStyle = isActive ? '#0000a8' : '#808080'; ctx.fillRect(x+4, y+4, w-8, 22); 
-            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 18px VT323'; ctx.textAlign = 'left'; ctx.fillText(title, x + 8, y + 20); 
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 18px VT323'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(title, x + 8, y + 20); 
             ctx.fillStyle = '#c0c0c0'; let btnX = x + w - 24; let btnY = y + 6; ctx.fillRect(btnX, btnY, 16, 16); 
             ctx.fillStyle = '#ffffff'; ctx.fillRect(btnX, btnY, 16, 1); ctx.fillRect(btnX, btnY, 1, 16);
             ctx.fillStyle = '#000000'; ctx.fillRect(btnX+15, btnY, 1, 16); ctx.fillRect(btnX, btnY+15, 16, 1);
@@ -118,8 +119,78 @@
             let offset = isPressed ? 2 : 0; ctx.fillText(text, x + w/2 + offset, y + h/2 + 6 + offset);
         }
 
-        // --- 4. IL WORM ASCII OOP E GESTIONE ESPLOSIONI ---
-        let droppedErrors = []; 
+        // --- 4. ERRORI FLUTTUANTI INDIPENDENTI E ESPLOSIONI ---
+        let floatingErrors = [];
+
+        class FloatingError {
+            constructor() {
+                this.w = 140; this.h = 80;
+                this.x = Math.random() * (canvas.width - this.w);
+                this.y = -100; // Nascono fuori schermo in alto
+                this.dx = (Math.random() - 0.5) * 6; // Rimbalzo orizzontale
+                this.dy = Math.random() * 3 + 2;     // Caduta
+                this.exploding = 0;
+            }
+
+            update(mureneAttive) {
+                if (this.exploding > 0) {
+                    this.exploding++;
+                    return;
+                }
+
+                // Movimento
+                this.x += this.dx;
+                this.y += this.dy;
+
+                // Rimbalzo sui muri laterali
+                if (this.x < 0 || this.x + this.w > canvas.width) {
+                    this.dx *= -1;
+                }
+
+                // COLLISIONE CON LE MURENE
+                let cx = this.x + this.w / 2;
+                let cy = this.y + this.h / 2;
+
+                mureneAttive.forEach(m => {
+                    let head = m.corpo[0];
+                    if (head) {
+                        let dist = Math.hypot(head.x - cx, head.y - cy);
+                        if (dist < 80) { // Se la Murena gli passa sopra...
+                            this.exploding = 1; // INNESCA L'ESPLOSIONE
+                        }
+                    }
+                });
+            }
+
+            draw() {
+                if (this.exploding > 0) {
+                    // --- ANIMAZIONE ESPLOSIONE ---
+                    let p = this.exploding / 20; // 20 frames di esplosione
+                    ctx.globalAlpha = 1 - p; // Svanisce man mano
+                    
+                    // Disegna la finestra frammentata
+                    let sX = (Math.random() - 0.5) * 60;
+                    let sY = (Math.random() - 0.5) * 60;
+                    
+                    ctx.globalCompositeOperation = 'screen';
+                    ctx.shadowColor = "red"; ctx.shadowBlur = 20;
+                    drawWin95Window(this.x + sX, this.y - sY, this.w, this.h, "FATAL!", true);
+                    
+                    ctx.fillStyle = "red"; ctx.font = "bold 40px monospace"; ctx.textAlign = 'center';
+                    ctx.fillText("BOOM", this.x + this.w/2 + sX, this.y + this.h/2 - sY + 10);
+                    
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+                } else {
+                    // --- FINESTRA NORMALE IN CADUTA ---
+                    drawWin95Window(this.x, this.y, this.w, this.h, "Error 0x00", false);
+                    ctx.fillStyle = "red"; ctx.font = "bold 20px Arial"; ctx.textAlign = 'left'; ctx.fillText("X", this.x + 30, this.y + 50);
+                    ctx.fillStyle = "black"; ctx.font = "18px VT323"; ctx.fillText("FATAL", this.x + 60, this.y + 48);
+                }
+            }
+        }
+
+        // --- 5. IL WORM ASCII ---
         let arrayMurene = [];
 
         class MurenaWorm {
@@ -153,29 +224,10 @@
 
                 this.corpo.unshift({ x: headX, y: headY, char: (Math.random()>0.5)?'#':'@' });
                 if(this.corpo.length > this.lunghezza) this.corpo.pop();
-
-                // Drop Errore
-                if (Math.random() > 0.88) {
-                    droppedErrors.push({ x: headX, y: headY, age: 0, exploding: 0 });
-                    if(droppedErrors.length > 50) droppedErrors.shift(); 
-                }
-
-                // COLLISIONE: Il verme sbatte contro i SUOI STESSI ERRORI
-                for (let i = droppedErrors.length - 1; i >= 0; i--) {
-                    let err = droppedErrors[i];
-                    err.age++;
-                    
-                    if (err.exploding === 0 && err.age > 40) { // Deve invecchiare un po' per non esplodere appena nato
-                        let dist = Math.hypot(headX - err.x, headY - err.y);
-                        if (dist < 60) {
-                            err.exploding = 1; // INNESCA L'ESPLOSIONE
-                        }
-                    }
-                }
             }
 
             draw() {
-                ctx.textAlign = 'center';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 for(let i=0; i<this.corpo.length; i++) {
                     let p = this.corpo[i];
                     let size = 60 - (i * 0.5);
@@ -194,44 +246,13 @@
             }
         }
 
-        function drawDroppedErrors() {
-            for (let i = droppedErrors.length - 1; i >= 0; i--) {
-                let err = droppedErrors[i];
-
-                if (err.exploding > 0) {
-                    err.exploding++;
-                    // ANIMAZIONE ESPLOSIONE GLITCHATA
-                    let progress = err.exploding / 15; // Dura 15 frame
-                    let size = 140 + (progress * 50); // Si allarga
-                    
-                    ctx.fillStyle = (Math.random() > 0.5) ? '#ff0000' : '#ffffff';
-                    let gX = err.x - (size/2) + (Math.random()-0.5)*30;
-                    let gY = err.y - 40 + (Math.random()-0.5)*30;
-                    
-                    ctx.globalAlpha = 1 - progress; // Svanisce
-                    ctx.fillRect(gX, gY, size, 80);
-                    ctx.fillStyle = '#000000';
-                    ctx.font = 'bold 30px monospace';
-                    ctx.fillText("FATAL", gX + size/2, gY + 40);
-                    ctx.globalAlpha = 1.0;
-
-                    if (err.exploding > 15) droppedErrors.splice(i, 1); // Rimuovi finito
-                } else {
-                    // FINESTRA NORMALE
-                    drawWin95Window(err.x - 60, err.y - 40, 140, 80, "Error", false);
-                    ctx.fillStyle = "red"; ctx.font = "bold 20px Arial"; ctx.fillText("X", err.x - 30, err.y + 10);
-                    ctx.fillStyle = "black"; ctx.font = "18px VT323"; ctx.fillText("FATAL", err.x + 10, err.y + 10);
-                }
-            }
-        }
-
-        // --- 5. EVENTO BOSS TUNNEL (Jumpscare PIÙ GIGANTE) ---
+        // --- 6. EVENTO BOSS JUMPSCARE ---
         let tunnelTimer = 0;
         let tunnelMaxTime = 60; 
         let tunnelX = 0; let tunnelY = 0;
 
         function triggerBossTunnel() {
-            if (tunnelTimer === 0 && tunnelImg.complete && Math.random() > 0.998) {
+            if (tunnelTimer === 0 && angryBossImg.complete && Math.random() > 0.998) {
                 tunnelTimer = 1;
                 tunnelX = Math.random() * (canvas.width * 0.6) + canvas.width * 0.2;
                 tunnelY = Math.random() * (canvas.height * 0.6) + canvas.height * 0.2;
@@ -242,8 +263,8 @@
                 let spriteFrame = Math.floor(progress * 24); 
                 let col = spriteFrame % 5; let row = Math.floor(spriteFrame / 5);
 
-                // --- MOLTIPLICATORE DI SCALA AUMENTATO (Da 3.3 a 6.5) ---
-                let currentScale = 0.2 + (progress * 6.5); 
+                // RIPORTATO A 3.3 (Era salito a 6.5 prima)
+                let currentScale = 0.2 + (progress * 3.3); 
                 let size = 256;
 
                 ctx.save();
@@ -258,11 +279,11 @@
                 if (Math.random() > 0.6) {
                     ctx.globalCompositeOperation = 'screen';
                     ctx.shadowColor = "red"; ctx.shadowBlur = 10;
-                    ctx.drawImage(tunnelImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX - 10, (-size/2) + glitchY, size, size);
+                    ctx.drawImage(angryBossImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX - 10, (-size/2) + glitchY, size, size);
                     ctx.shadowColor = "cyan"; ctx.shadowBlur = 10;
-                    ctx.drawImage(tunnelImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX + 10, (-size/2) + glitchY, size, size);
+                    ctx.drawImage(angryBossImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX + 10, (-size/2) + glitchY, size, size);
                 } else {
-                    ctx.drawImage(tunnelImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX, (-size/2) + glitchY, size, size);
+                    ctx.drawImage(angryBossImg, col * 256, row * 256, 256, 256, (-size/2) + glitchX, (-size/2) + glitchY, size, size);
                 }
 
                 ctx.restore();
@@ -272,7 +293,7 @@
             }
         }
 
-        // --- 6. RENDER FINALE ---
+        // --- 7. RENDER FINALE ---
         let mainTimer = 0;
 
         function animazione() {
@@ -284,7 +305,7 @@
 
             for(let f of folders) {
                 ctx.fillStyle = '#ffcc00'; ctx.fillRect(f.x, f.y+5, 40, 30); ctx.fillRect(f.x, f.y, 15, 5); 
-                ctx.fillStyle = '#ffffff'; ctx.font = '22px VT323'; ctx.textAlign = 'center'; 
+                ctx.fillStyle = '#ffffff'; ctx.font = '22px VT323'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
                 
                 let words = f.name.split(' ');
                 if(words.length > 1 && f.name !== "CANNE MOZZE" && f.name !== "VAI VIA" && f.name !== "MON AMI") {
@@ -295,19 +316,29 @@
                 }
             }
 
-            // LAYER 1: IL TUNNEL BOSS JUMPSCARE (Dietro tutto il caos animato)
+            // GESTIONE ERRORI FLUTTUANTI (Generazione casuale)
+            if (Math.random() > 0.96 && floatingErrors.length < 12) {
+                floatingErrors.push(new FloatingError());
+            }
+
+            // Aggiorna Errori
+            floatingErrors.forEach(err => err.update(arrayMurene));
+            // Rimuove quelli usciti dallo schermo in basso o esplosi
+            floatingErrors = floatingErrors.filter(err => err.y < canvas.height + 100 && err.exploding <= 20);
+
+            // LAYER 1: IL BOSS ANGRY (Dietro tutto)
             triggerBossTunnel();
 
-            // LAYER 2: GLI ERRORI DROPPATI DAL WORM (Sul Desktop)
-            drawDroppedErrors();
+            // LAYER 2: LE FINESTRE D'ERRORE IN CADUTA
+            floatingErrors.forEach(err => err.draw());
 
-            // LAYER 3: IL WORM ASCII (Davanti agli Errori e al Tunnel, ma Dietro al Logo)
+            // LAYER 3: IL WORM ASCII (Davanti agli errori)
             arrayMurene = arrayMurene.filter(m => !m.isDead());
             if (arrayMurene.length === 0) arrayMurene.push(new MurenaWorm()); 
             arrayMurene.forEach(m => m.update());
             arrayMurene.forEach(m => m.draw());
 
-            // LAYER 4: LA FINESTRA MADRE (PRIMISSIMO PIANO) - DINAMICA E MISURATA
+            // LAYER 4: LA FINESTRA MADRE (PRIMISSIMO PIANO)
             if (tintedLogo.width > 0) {
                 let maxLogoW = canvas.width * 0.55; 
                 let maxLogoH = canvas.height * 0.45;
@@ -315,27 +346,16 @@
                 let lW = tintedLogo.width * logoScale;
                 let lH = tintedLogo.height * logoScale;
                 
-                // Margini e dimensioni Finestra dinamici sul logo
-                let padX = 40; 
-                let padTop = 60; // Spazio per la barra titolo Win95
-                let padBot = 90; // Spazio per i bottoni
-                
-                let wW = lW + padX * 2;
-                let wH = lH + padTop + padBot;
-                let wX = (canvas.width - wW) / 2;
-                let wY = (canvas.height - wH) / 2;
+                let padX = 40; let padTop = 60; let padBot = 90; 
+                let wW = lW + padX * 2; let wH = lH + padTop + padBot;
+                let wX = (canvas.width - wW) / 2; let wY = (canvas.height - wH) / 2;
 
                 let isMainActive = (Math.floor(mainTimer / 10) % 2 === 0);
                 drawWin95Window(wX, wY, wW, wH, "STUDIO_MURENA_FATAL_EXCEPTION.EXE", isMainActive);
-                
-                // Disegna Logo
                 ctx.drawImage(tintedLogo, wX + padX, wY + padTop, lW, lH);
 
-                // Tasti in basso
                 let btnW = Math.min(120, (wW - 80) / 3); 
-                let btnH = 40;
-                let btnY = wY + wH - 60;
-                let gap = 20;
+                let btnH = 40; let btnY = wY + wH - 60; let gap = 20;
                 let totalBtnWidth = (btnW * 3) + (gap * 2);
                 let startX = wX + (wW - totalBtnWidth) / 2;
 
